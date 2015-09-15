@@ -7,6 +7,7 @@ import platform
 import os
 from exceptions import Exception
 import threading
+import re
 
 from serial_device2 import SerialDevice, SerialDevices, find_serial_device_ports, WriteFrequencyError
 
@@ -27,17 +28,6 @@ else:
 
 DEBUG = False
 BAUDRATE = 9600
-RESPONSE_LENGTH = 6
-CURRENT_MIN = 1
-CURRENT_MAX = 100
-MIGHTEX_CURRENT_MIN = 127
-MIGHTEX_CURRENT_MAX = 10
-ALIAS_MIN = 0
-ALIAS_MAX = 98
-POSITION_ADDRESS_MIN = 0
-POSITION_ADDRESS_MAX = 15
-SERIAL_NUMBER_ADDRESS = 123
-RESPONSE_ATTEMPTS_MAX = 2
 
 class MightexError(Exception):
     def __init__(self,value):
@@ -57,35 +47,27 @@ class MightexDevice(object):
     dev = MightexDevice('/dev/ttyUSB0') # Linux
     dev = MightexDevice('/dev/tty.usbmodem262471') # Mac OS X
     dev = MightexDevice('COM3') # Windows
-    dev.get_actuator_count()
-    2
-    dev.get_position()
-    [130000, 160000]
-    dev.home()
-    dev.moving()
-    [True, True]
-    dev.moving()
-    [False, False]
-    dev.get_position()
-    [0, 0]
-    dev.move_relative(10000)
-    dev.get_position()
-    [10000, 10000]
-    dev.move_relative(10000,0)
-    dev.moving()
-    [True, False]
-    dev.get_position()
-    [20000, 10000]
-    dev.store_position(0)
-    dev.get_stored_position(0)
-    [20000, 10000]
-    dev.move_at_speed(1000)
-    dev.stop()
-    dev.get_position()
-    [61679, 51679]
-    dev.move_to_stored_position(0)
-    dev.get_position()
-    [20000, 10000]
+    dev.get_serial_number()
+    '04-150824-007'
+    channel = 1
+    dev.get_mode(channel)
+    'disable'
+    dev.set_normal_parameters(channel,1000,30)
+    dev.get_normal_parameters(channel)
+    {'current': 30, 'current_max': 1000}
+    dev.set_mode_normal(channel)
+    dev.set_normal_current(channel,200)
+    dev.set_mode_disable(channel)
+    dev.set_strobe_parameters(channel,100,1)
+    dev.get_strobe_parameters(channel)
+    {'current_max': 100, 'repeat': 1}
+    dev.set_strobe_profile_set_point(channel,0,100,1000000)
+    dev.set_strobe_profile_set_point(channel,1,10,500000)
+    dev.get_strobe_profile(channel)
+    [{'current': 100, 'duration': 1000000},
+     {'current': 10, 'duration': 500000},
+     {'current': 0, 'duration': 0}]
+    dev.set_mode_strobe(channel)
     '''
     _TIMEOUT = 0.05
     _WRITE_WRITE_DELAY = 0.05
@@ -132,99 +114,39 @@ class MightexDevice(object):
         pass
 
     def _args_to_request(self,*args):
-        request = ''.join(map(chr,args))
+        request = ' '.join(map(str,args))
+        request = request + '\n\r';
         return request
 
-    def _data_to_args_list(self,data):
-        if data is None:
-            return [0,0,0,0]
-        # Handle negative data
-        # If Cmd_Data < 0 then Cmd_Data = 256^4 + Cmd_Data
-        # Cmd_Byte_6 = Cmd_Data / 256^3
-        # Cmd_Data   = Cmd_Data - 256^3 * Cmd_Byte_6
-        # Cmd_Byte_5 = Cmd_Data / 256^2
-        # Cmd_Data   = Cmd_Data - 256^2 * Cmd_Byte_5
-        # Cmd_Byte_4 = Cmd_Data / 256
-        # Cmd_Data   = Cmd_Data - 256   * Cmd_Byte_4
-        # Cmd_Byte 3 = Cmd_Data
-        data = int(data)
-        if data < 0:
-            data += pow(256,4)
-        arg3 = data // pow(256,3)
-        data -= pow(256,3)*arg3
-        arg2 = data // pow(256,2)
-        data -= pow(256,2)*arg2
-        arg1 = data // 256
-        data -= 256*arg1
-        arg0 = data
-        return [arg0,arg1,arg2,arg3]
-
-    def _response_to_data(self,response):
-        self._debug_print('len(response)',len(response))
-        actuator_count = len(response) // RESPONSE_LENGTH
-        self._debug_print('actuator_count',actuator_count)
-        data_list = [None for d in range(actuator_count)]
-        for actuator_n in range(actuator_count):
-            actuator = ord(response[0+actuator_n*RESPONSE_LENGTH]) - 1
-            self._debug_print('response_actuator',actuator)
-            command = ord(response[1+actuator_n*RESPONSE_LENGTH])
-            self._debug_print('response_command',command)
-            response_copy = response[(2+actuator_n*RESPONSE_LENGTH):(6+actuator_n*RESPONSE_LENGTH)]
-            # Reply_Data = 256^3 * Rpl_Byte 6 + 256^2 * Rpl_Byte_5 + 256 * Rpl_Byte_4 + Rpl_Byte_3
-            # If Rpl_Byte_6 > 127 then Reply_Data = Reply_Data - 256^4
-            data = pow(256,3)*ord(response_copy[3]) + pow(256,2)*ord(response_copy[2]) + 256*ord(response_copy[1]) + ord(response_copy[0])
-            data_list[actuator] = data
-        return data_list
-
-    def _send_request(self,command,actuator=None,data=None):
-
-        '''Sends request to device over serial port and
-        returns number of bytes written'''
-
+    def _send_request(self,*args):
+        '''
+        Sends request to device over serial port and
+        returns number of bytes written.
+        '''
         self._lock.acquire()
-        if actuator is None:
-            actuator = 0
-        elif actuator < 0:
-            raise MightexError('actuator must be >= 0')
-        else:
-            actuator = int(actuator)
-            actuator += 1
-        args_list = self._data_to_args_list(data)
-        request = self._args_to_request(actuator,command,*args_list)
-        self._debug_print('request', [ord(c) for c in request])
+        request = self._args_to_request(*args)
+        self._debug_print('request', request)
         bytes_written = self._serial_device.write_check_freq(request,delay_write=True)
-        self._debug_print('bytes_written', bytes_written)
         self._lock.release()
         return bytes_written
 
-    def _send_request_get_response(self,command,actuator=None,data=None):
-
-        '''Sends request to device over serial port and
-        returns response'''
-
+    def _send_request_get_response(self,*args):
+        '''
+        Sends request to device over serial port and
+        returns response.
+        '''
         self._lock.acquire()
-        if actuator is None:
-            actuator = 0
-        elif actuator < 0:
-            raise MightexError('actuator must be >= 0')
-        else:
-            actuator = int(actuator)
-            actuator += 1
-        args_list = self._data_to_args_list(data)
-        request = self._args_to_request(actuator,command,*args_list)
-        self._debug_print('request', [ord(c) for c in request])
-        tries = 0
-        while tries < RESPONSE_ATTEMPTS_MAX:
-            tries += 1
-            try:
-                response = self._serial_device.write_read(request,use_readline=False,check_write_freq=True)
-                self._debug_print('response', [ord(c) for c in response])
-                data = self._response_to_data(response)
-                self._debug_print('data', data)
-            except:
-                pass
+        request = self._args_to_request(*args)
+        self._debug_print('request', request)
+        response = self._serial_device.write_read(request,use_readline=True,check_write_freq=True)
         self._lock.release()
-        return data
+        response = response.strip()
+        if '#!' in response:
+            raise MightexError('The command is valid and executed, but an error occurred during execution.')
+        elif '#?' in response:
+            raise MightexError('The latest command is a valid command but the argument is NOT in valid range.')
+        response = response.replace('#','')
+        return response
 
     def close(self):
         '''
@@ -235,300 +157,215 @@ class MightexDevice(object):
     def get_port(self):
         return self._serial_device.port
 
-    def reset(self,actuator=None):
+    def get_device_info(self):
         '''
-        Sets the actuator to its power-up condition.
+        Get device_info.
         '''
-        self._send_request(0,actuator)
-
-    def home(self,actuator=None):
-        '''
-        Moves to the home position and resets the actuator's internal position.
-        '''
-        self._send_request(1,actuator)
-
-    def renumber(self):
-        '''
-        Assigns new numbers to all the actuators in the order in which they are connected.
-        '''
-        self._send_request(2,None)
-
-    def store_position(self,address,actuator=None):
-        '''
-        Saves the current absolute position of the actuator into the address.
-        '''
-        address = int(address)
-        if (address < POSITION_ADDRESS_MIN) or (address > POSITION_ADDRESS_MAX):
-            raise MightexError('address must be between {0} and {1}'.format(POSITION_ADDRESS_MIN,POSITION_ADDRESS_MAX))
-        self._send_request(16,actuator,address)
-
-    def get_stored_position(self,address):
-        '''
-        Gets the current absolute position of the actuator into the address.
-        '''
-        address = int(address)
-        if (address < POSITION_ADDRESS_MIN) or (address > POSITION_ADDRESS_MAX):
-            raise MightexError('address must be between {0} and {1}'.format(POSITION_ADDRESS_MIN,POSITION_ADDRESS_MAX))
-        actuator = None
-        response = self._send_request_get_response(17,actuator,address)
+        request = self._args_to_request('DEVICEINFO')
+        self._debug_print('request', request)
+        response = self._send_request_get_response(request)
+        if 'Mightex' not in response:
+            raise MightexError('"Mightex" not in device_info.')
         return response
-
-    def move_to_stored_position(self,address,actuator=None):
-        '''
-        Moves the actuator to the position stored in the specified address.
-        '''
-        address = int(address)
-        if (address < POSITION_ADDRESS_MIN) or (address > POSITION_ADDRESS_MAX):
-            raise MightexError('address must be between {0} and {1}'.format(POSITION_ADDRESS_MIN,POSITION_ADDRESS_MAX))
-        self._send_request(18,actuator,address)
-
-    def move_absolute(self,position,actuator=None):
-        '''
-        Moves the actuator to the position specified in microsteps.
-        '''
-        self._send_request(20,actuator,position)
-
-    def get_actuator_count(self):
-        '''
-        Return the number of Mightex actuators connected in a chain.
-        '''
-        data = 123
-        actuator = None
-        response = self._send_request_get_response(55,actuator,data)
-        try:
-            actuator_count = len(response)
-        except TypeError:
-            actuator_count = 1
-        return actuator_count
-
-    def move_relative(self,position,actuator=None):
-        '''
-        Moves the actuator by the positive or negative number of microsteps specified.
-        '''
-        self._send_request(21,actuator,position)
-
-    def move_at_speed(self,speed,actuator=None):
-        '''
-        Moves the actuator at a constant speed until stop is commanded or a limit is reached.
-        '''
-        self._send_request(22,actuator,speed)
-
-    def stop(self,actuator=None):
-        '''
-        Stops the device from moving by preempting any move instruction.
-        '''
-        self._send_request(23,actuator)
-
-    def restore_settings(self):
-        '''
-        Restores the device settings to the factory defaults.
-        '''
-        self._send_request(36,None)
-
-    def get_actuator_id(self):
-        '''
-        Returns the id number for the type of actuator connected.
-        '''
-        actuator = None
-        response = self._send_request_get_response(50,actuator)
-        return response
-
-    def _return_setting(self,setting,actuator):
-        '''
-        Returns the current value of the specified setting.
-        '''
-        response = self._send_request_get_response(53,actuator,setting)
-        return response
-
-    def _get_microstep_resolution(self):
-        '''
-        Returns the number of microsteps per step.
-        '''
-        actuator = None
-        response = self._return_setting(37,actuator)
-        return response
-
-    def set_running_current(self,current,actuator=None):
-        '''
-        Sets the desired current to be used when the actuator is moving. (1-100)
-        '''
-        if (current < CURRENT_MIN) or (current > CURRENT_MAX):
-            raise MightexError('current must be between {0} and {1}'.format(CURRENT_MIN,CURRENT_MAX))
-        mightex_current = self._map(current,CURRENT_MIN,CURRENT_MAX,MIGHTEX_CURRENT_MIN,MIGHTEX_CURRENT_MAX)
-        self._send_request(38,actuator,mightex_current)
-
-    def get_running_current(self):
-        '''
-        Returns the desired current to be used when the actuator is moving. (1-100)
-        '''
-        actuator = None
-        response = self._return_setting(38,actuator)
-        response = self._map_list(response,MIGHTEX_CURRENT_MIN,MIGHTEX_CURRENT_MAX,CURRENT_MIN,CURRENT_MAX)
-        return response
-
-    def set_hold_current(self,current,actuator=None):
-        '''
-        Sets the desired current to be used when the actuator is holding its position. (1-100)
-        '''
-        if (current < CURRENT_MIN) or (current > CURRENT_MAX):
-            raise MightexError('current must be between {0} and {1}'.format(CURRENT_MIN,CURRENT_MAX))
-        mightex_current = self._map(current,CURRENT_MIN,CURRENT_MAX,MIGHTEX_CURRENT_MIN,MIGHTEX_CURRENT_MAX)
-        self._send_request(39,actuator,mightex_current)
-
-    def get_hold_current(self):
-        '''
-        Returns the desired current to be used when the actuator is holding its position. (1-100)
-        '''
-        actuator = None
-        response = self._return_setting(39,actuator)
-        response = self._map_list(response,MIGHTEX_CURRENT_MIN,MIGHTEX_CURRENT_MAX,CURRENT_MIN,CURRENT_MAX)
-        return response
-
-    def _get_actuator_mode(self):
-        '''
-        Returns the mode for the given actuator.
-        '''
-        actuator = None
-        response = self._return_setting(40,actuator)
-        response = ["{0:b}".format(r) for r in response]
-        return response
-
-    def set_home_speed(self,speed,actuator=None):
-        '''
-        Sets the speed at which the actuator moves when using the "Home" command.
-        '''
-        self._send_request(41,actuator,speed)
-
-    def get_home_speed(self):
-        '''
-        Returns the speed at which the actuator moves when using the "Home" command.
-        '''
-        actuator = None
-        response = self._return_setting(41,actuator)
-        return response
-
-    def set_target_speed(self,speed,actuator=None):
-        '''
-        Sets the speed at which the actuator moves when using "move_absolute" or "move_relative" commands.
-        '''
-        self._send_request(42,actuator,speed)
-
-    def get_target_speed(self):
-        '''
-        Returns the speed at which the actuator moves when using "move_absolute" or "move_relative" commands.
-        '''
-        actuator = None
-        response = self._return_setting(42,actuator)
-        return response
-
-    def set_acceleration(self,acceleration,actuator=None):
-        '''
-        Sets the acceleration used by the movement commands.
-        '''
-        self._send_request(43,actuator,acceleration)
-
-    def get_acceleration(self):
-        '''
-        Returns the acceleration used by the movement commands.
-        '''
-        actuator = None
-        response = self._return_setting(43,actuator)
-        return response
-
-    def get_alias(self):
-        '''
-        Returns the alternate device numbers for the actuators.
-        '''
-        actuator = None
-        response = self._return_setting(48,actuator)
-        response_corrected = []
-        for r in response:
-            if r > 0:
-                response_corrected.append(r-1)
-            else:
-                response_corrected.append(None)
-        return response_corrected
-
-    def set_alias(self,actuator,alias):
-        '''
-        Sets the alternate device numbers for the actuator.
-        '''
-        actuator_count = self.get_actuator_count()
-        if (actuator < 0) or (actuator > actuator_count):
-            raise MightexError('actuator must be between {0} and {1}'.format(0,actuator_count))
-        if (alias < ALIAS_MIN) or (alias > ALIAS_MAX):
-            raise MightexError('alias must be between {0} and {1}'.format(ALIAS_MIN,ALIAS_MAX))
-        self._send_request(48,actuator,alias+1)
-
-    def remove_alias(self,actuator=None):
-        '''
-        Removes the alternate device number for the actuator.
-        '''
-        response = self._send_request_get_response(48,actuator,0)
-        return response
-
-    def moving(self):
-        '''
-        Returns True if actuator is moving, False otherwise
-        '''
-        actuator = None
-        response = self._send_request_get_response(54,actuator)
-        response = [bool(r) for r in response]
-        return response
-
-    def echo_data(self,data):
-        '''
-        Echoes back the same Command Data that was sent.
-        '''
-        actuator = None
-        response = self._send_request_get_response(55,actuator,data)
-        try:
-            response = response[0]
-        except TypeError:
-            pass
-        return response
-
-    def get_position(self):
-        '''
-        Returns the current absolute position of the actuator in microsteps.
-        '''
-        actuator = None
-        response = self._send_request_get_response(60,actuator)
-        return response
-
-    def set_serial_number(self,serial_number):
-        '''
-        Sets serial number. Useful for talking communicating with MightexDevices on multiple serial ports.
-        '''
-        actuator = None
-        # write
-        data = 1 << 7
-        address = SERIAL_NUMBER_ADDRESS
-        data += address
-        serial_number = int(serial_number)
-        serial_number = serial_number << 8
-        data += serial_number
-        self._send_request(35,actuator,data)
 
     def get_serial_number(self):
         '''
-        Gets serial number. Useful for talking communicating with MightexDevices on multiple serial ports.
+        Get serial_number.
         '''
-        actuator = None
-        # read
-        data = 0 << 7
-        address = SERIAL_NUMBER_ADDRESS
-        data += address
-        response = self._send_request_get_response(35,actuator,data)
-        response = response[0]
-        response = response >> 8
-        return response
+        device_info = self.get_device_info()
+        serial_number_str = 'Serial No.:'
+        p = re.compile(serial_number_str+'\d+-?\d+-?\d+')
+        found_list = p.findall(device_info)
+        if len(found_list) != 1:
+            raise MightexError('serial_number not found in device_info.')
+        else:
+            serial_number = found_list[0]
+            serial_number = serial_number.replace(serial_number_str,'')
+            return serial_number
 
-    def _map_list(self,x_list,in_min,in_max,out_min,out_max):
-        return [int((x-in_min)*(out_max-out_min)/(in_max-in_min)+out_min) for x in x_list]
+    def get_mode(self,channel):
+        '''
+        Get channel mode. Modes = ['DISABLE','NORMAL','STROBE','TRIGGER']
+        '''
+        channel = int(channel)
+        request = self._args_to_request('?MODE',channel)
+        self._debug_print('request', request)
+        response = self._send_request_get_response(request)
+        if response == '0':
+            return 'DISABLE'
+        elif response == '1':
+            return 'NORMAL'
+        elif response == '2':
+            return 'STROBE'
+        elif response == '3':
+            return 'TRIGGER'
+        else:
+            raise MightexError('Unknown response: {0}'.format(response))
 
-    def _map(self,x,in_min,in_max,out_min,out_max):
-        return int((x-in_min)*(out_max-out_min)/(in_max-in_min)+out_min)
+    def set_mode_disable(self,channel):
+        '''
+        Set DISABLE mode.
+        '''
+        channel = int(channel)
+        request = self._args_to_request('MODE',channel,0)
+        self._debug_print('request', request)
+        self._send_request(request)
+
+    def set_mode_normal(self,channel):
+        '''
+        Set NORMAL mode.
+        '''
+        channel = int(channel)
+        request = self._args_to_request('MODE',channel,1)
+        self._debug_print('request', request)
+        self._send_request(request)
+
+    def set_mode_strobe(self,channel):
+        '''
+        Set STROBE mode.
+        '''
+        channel = int(channel)
+        request = self._args_to_request('MODE',channel,2)
+        self._debug_print('request', request)
+        self._send_request(request)
+
+    def set_mode_trigger(self,channel):
+        '''
+        Set TRIGGER mode.
+        '''
+        channel = int(channel)
+        request = self._args_to_request('MODE',channel,3)
+        self._debug_print('request', request)
+        self._send_request(request)
+
+    def set_normal_parameters(self,channel,current_max,current):
+        '''
+        Set NORMAL mode parameters. current_max is the maximum current
+        allowed for NORMAL mode, in mA. current is the working current
+        for NORMAL mode, in mA.
+        '''
+        channel = int(channel)
+        current_max = int(current_max)
+        current = int(current)
+        request = self._args_to_request('NORMAL',channel,current_max,current)
+        self._debug_print('request', request)
+        self._send_request(request)
+
+    def set_normal_current(self,channel,current):
+        '''
+        Set the working current for NORMAL mode, in mA.
+        '''
+        channel = int(channel)
+        current = int(current)
+        request = self._args_to_request('CURRENT',channel,current)
+        self._debug_print('request', request)
+        self._send_request(request)
+
+    def get_normal_parameters(self,channel):
+        '''
+        Get NORMAL mode parameters. current_max is the maximum current
+        allowed for NORMAL mode, in mA. current is the working current
+        for NORMAL mode, in mA.
+        '''
+        channel = int(channel)
+        request = self._args_to_request('?CURRENT',channel)
+        self._debug_print('request', request)
+        response = self._send_request_get_response(request)
+        response_list = response.split(' ')
+        parameters = {}
+        parameters['current_max'] = int(response_list[-2])
+        parameters['current'] = int(response_list[-1])
+        return parameters
+
+    def set_strobe_parameters(self,channel,current_max,repeat):
+        '''
+        Set STROBE mode parameters. current_max is the maximum current
+        allowed for STROBE mode, in mA. repeat is the Repeat Count for
+        running the profile. It can be from 0 to 99999999. And the
+        number 9999 is special, it means repeat forever. Note that
+        when it is 0, the programmed wave form will output once, when
+        it is 1, the wave form will be repeated once, which will be
+        output twice and so on.
+        '''
+        channel = int(channel)
+        current_max = int(current_max)
+        repeat = int(repeat)
+        request = self._args_to_request('STROBE',channel,current_max,repeat)
+        self._debug_print('request', request)
+        self._send_request(request)
+
+    def set_strobe_profile_set_point(self,channel,set_point,current,duration):
+        '''
+        Each channel has a programmable profile for STROBE mode. The
+        profile contains 128 set_point values (0-127), and each
+        set_point has current(mA)/duration(us) pair. A ZERO/ZERO pair
+        means it is the end of the profile. If user does not program
+        the profile for a certain channel, the default is all
+        Zero/Zero pairs, which means the channel is always OFF. Use
+        this method over and over to set a customized profile and
+        then enter STROBE mode with the set_mode_strobe method. The
+        profile will be executed (repeatedly) after device enters (or
+        reenters) the STROBE mode.
+        '''
+        channel = int(channel)
+        set_point = int(set_point)
+        current = int(current)
+        duration = int(duration)
+        request = self._args_to_request('STRP',channel,set_point,current,duration)
+        self._debug_print('request', request)
+        self._send_request(request)
+
+    def get_strobe_parameters(self,channel):
+        '''
+        Get STROBE mode parameters. current_max is the maximum current
+        allowed for STROBE mode, in mA. repeat is the Repeat Count for
+        running the profile. It can be from 0 to 99999999. And the
+        number 9999 is special, it means repeat forever. Note that
+        when it is 0, the programmed wave form will output once, when
+        it is 1, the wave form will be repeated once, which will be
+        output twice and so on.
+        '''
+        channel = int(channel)
+        request = self._args_to_request('?STROBE',channel)
+        self._debug_print('request', request)
+        response = self._send_request_get_response(request)
+        response_list = response.split(' ')
+        parameters = {}
+        parameters['current_max'] = int(response_list[0])
+        parameters['repeat'] = int(response_list[1])
+        return parameters
+
+    def get_strobe_profile(self,channel):
+        '''
+        Each channel has a programmable profile for STROBE mode. The
+        profile contains 128 set_point values (0-127), and each
+        set_point has current(mA)/duration(us) pair. A ZERO/ZERO pair
+        means it is the end of the profile. If user does not program
+        the profile for a certain channel, the default is all
+        Zero/Zero pairs, which means the channel is always OFF.
+        '''
+        request = self._args_to_request('?STRP',channel)
+        self._debug_print('request', request)
+        self._send_request(request)
+        current = None
+        duration = None
+        profile = []
+        while not ((current == 0) and (duration == 0)):
+            response = self._serial_device.readline()
+            response = response.strip()
+            response = response.replace('#','')
+            response_list = response.split(' ')
+            self._debug_print('strobe_profile set_point',response_list)
+            try:
+                current = int(response_list[0])
+                duration = int(response_list[1])
+                profile_set_point = {}
+                profile_set_point['current'] = current
+                profile_set_point['duration'] = duration
+                profile.append(profile_set_point)
+            except:
+                pass
+        return profile
 
 
 class MightexDevices(dict):
@@ -577,12 +414,9 @@ def find_mightex_device_ports(baudrate=None,
         try:
             dev = MightexDevice(port=port,baudrate=baudrate,debug=debug)
             try:
-                test_data = 123
-                echo_data = dev.echo_data(test_data)
-                if test_data == echo_data:
-                    s_n = dev.get_serial_number()
-                    if (serial_number is None) or (s_n == serial_number):
-                        mightex_device_ports[port] = {'serial_number':s_n}
+                s_n = dev.get_serial_number()
+                if (serial_number is None) or (s_n == serial_number):
+                    mightex_device_ports[port] = {'serial_number':s_n}
             except:
                 continue
             dev.close()
@@ -595,9 +429,9 @@ def find_mightex_device_port(baudrate=None,
                            serial_number=None,
                            debug=DEBUG):
     mightex_device_ports = find_mightex_device_ports(baudrate=baudrate,
-                                                 try_ports=try_ports,
-                                                 serial_number=serial_number,
-                                                 debug=debug)
+                                                     try_ports=try_ports,
+                                                     serial_number=serial_number,
+                                                     debug=debug)
     if len(mightex_device_ports) == 1:
         return mightex_device_ports.keys()[0]
     elif len(mightex_device_ports) == 0:
