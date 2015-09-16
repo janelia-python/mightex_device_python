@@ -125,7 +125,6 @@ class MightexDevice(object):
         else:
             kwargs.update({'debug': DEBUG})
             self.debug = DEBUG
-        kwargs['debug'] = False
         if 'try_ports' in kwargs:
             try_ports = kwargs.pop('try_ports')
         else:
@@ -140,15 +139,15 @@ class MightexDevice(object):
             kwargs.update({'write_write_delay': self._WRITE_WRITE_DELAY})
         if ('port' not in kwargs) or (kwargs['port'] is None):
             port =  find_mightex_device_port(baudrate=kwargs['baudrate'],
-                                           try_ports=try_ports,
-                                           debug=kwargs['debug'])
+                                             try_ports=try_ports,
+                                             debug=kwargs['debug'])
             kwargs.update({'port': port})
 
         t_start = time.time()
         self._serial_device = SerialDevice(*args,**kwargs)
         atexit.register(self._exit_mightex_device)
-        time.sleep(self._RESET_DELAY)
         self._lock = threading.Lock()
+        time.sleep(self._RESET_DELAY)
         t_end = time.time()
         self._debug_print('Initialization time =', (t_end - t_start))
 
@@ -211,7 +210,10 @@ class MightexDevice(object):
         self._debug_print('request', request)
         response = self._send_request_get_response(request)
         if 'Mightex' not in response:
-            raise MightexError('"Mightex" not in device_info.')
+            # try again just in case
+            response = self._send_request_get_response(request)
+            if 'Mightex' not in response:
+                raise MightexError('"Mightex" not in device_info.')
         return response
 
     def get_serial_number(self):
