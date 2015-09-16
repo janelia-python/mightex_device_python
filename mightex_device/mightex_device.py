@@ -56,18 +56,62 @@ class MightexDevice(object):
     dev.get_normal_parameters(channel)
     {'current': 30, 'current_max': 1000}
     dev.set_mode_normal(channel)
+    dev.get_load_voltage(channel)
+    2622
     dev.set_normal_current(channel,200)
+    dev.get_load_voltage(channel)
+    3054
     dev.set_mode_disable(channel)
     dev.set_strobe_parameters(channel,100,1)
     dev.get_strobe_parameters(channel)
     {'current_max': 100, 'repeat': 1}
     dev.set_strobe_profile_set_point(channel,0,100,1000000)
     dev.set_strobe_profile_set_point(channel,1,10,500000)
-    dev.get_strobe_profile(channel)
+    dev.set_strobe_profile_set_point(channel,2,0,0)
+    profile = dev.get_strobe_profile(channel)
+    profile
     [{'current': 100, 'duration': 1000000},
      {'current': 10, 'duration': 500000},
      {'current': 0, 'duration': 0}]
     dev.set_mode_strobe(channel)
+    dev.get_strobe_profile(channel+1)
+    [{'current': 20, 'duration': 1000},
+     {'current': 10, 'duration': 1000},
+     {'current': 0, 'duration': 0}]
+    dev.set_strobe_profile(channel+1,profile)
+    dev.get_strobe_profile(channel+1)
+    dev.set_mode_strobe(channel+1)
+    dev.set_trigger_parameters(channel,100,True)
+    dev.get_trigger_parameters(channel)
+    {'current_max': 100, 'falling_edge': True}
+    dev.set_trigger_profile_set_point(channel,0,100,1000000)
+    dev.set_trigger_profile_set_point(channel,1,10,500000)
+    dev.set_trigger_profile_set_point(channel,2,0,0)
+    dev.get_trigger_profile(channel)
+    [{'current': 100, 'duration': 1000000},
+     {'current': 10, 'duration': 500000},
+     {'current': 0, 'duration': 0}]
+    dev.set_mode_trigger(channel)
+    dev.reset()
+    dev.get_trigger_profile(channel)
+    [{'current': 20, 'duration': 1000},
+     {'current': 10, 'duration': 1000},
+     {'current': 0, 'duration': 0}]
+    dev.set_trigger_profile_set_point(channel,0,100,1000000)
+    dev.set_trigger_profile_set_point(channel,1,10,500000)
+    dev.set_trigger_profile_set_point(channel,2,0,0)
+    dev.store_parameters()
+    dev.reset()
+    dev.get_trigger_profile(channel)
+    [{'current': 100, 'duration': 1000000},
+     {'current': 10, 'duration': 500000},
+     {'current': 0, 'duration': 0}]
+    dev.restore_factory_defaults()
+    dev.store_parameters()
+    dev.reset()
+    dev.get_trigger_profile(channel)
+    [{'current': 10, 'duration': 20},
+     {'current': 0, 'duration': 0}]
     '''
     _TIMEOUT = 0.05
     _WRITE_WRITE_DELAY = 0.05
@@ -367,16 +411,158 @@ class MightexDevice(object):
                 pass
         return profile
 
+    def set_strobe_profile(self,channel,profile):
+        '''
+        Each channel has a programmable profile for STROBE mode. The
+        profile contains up to 128 set_point values (0-127), and each
+        set_point has current(mA)/duration(us) pair. profile example:
+        [{'current': 100, 'duration': 1000000},
+         {'current': 10, 'duration': 500000},
+         {'current': 0, 'duration': 0}]
+        '''
+        set_point = 0
+        for set_point_parameters in profile:
+            self.set_strobe_profile_set_point(channel,set_point,**set_point_parameters)
+            set_point += 1
+
+    def set_trigger_parameters(self,channel,current_max,falling_edge):
+        '''
+        Set TRIGGER mode parameters. current_max is the maximum current
+        allowed for TRIGGER mode, in mA. When falling_edge is True,
+        the falling edge of external trigger signal asserts. When
+        falling_edge is False, the rising edge of the external trigger
+        signal asserts.
+        '''
+        channel = int(channel)
+        current_max = int(current_max)
+        polarity = int(bool(falling_edge))
+        request = self._args_to_request('TRIGGER',channel,current_max,polarity)
+        self._debug_print('request', request)
+        self._send_request(request)
+
+    def set_trigger_profile_set_point(self,channel,set_point,current,duration):
+        '''
+        Each channel has a programmable profile for TRIGGER mode. The
+        profile contains 128 set_point values (0-127), and each
+        set_point has current(mA)/duration(us) pair. A ZERO/ZERO pair
+        means it is the end of the profile. If user does not program
+        the profile for a certain channel, the default is all
+        Zero/Zero pairs, which means the channel is always OFF. Use
+        this method over and over to set a customized profile and then
+        enter TRIGGER mode with the set_mode_trigger method. The
+        profile will be executed while an external trigger occurs and
+        the device is in TRIGGER mode.
+        '''
+        channel = int(channel)
+        set_point = int(set_point)
+        current = int(current)
+        duration = int(duration)
+        request = self._args_to_request('TRIGP',channel,set_point,current,duration)
+        self._debug_print('request', request)
+        self._send_request(request)
+
+    def get_trigger_parameters(self,channel):
+        '''
+        Get TRIGGER mode parameters. current_max is the maximum current
+        allowed for TRIGGER mode, in mA. When falling_edge is True,
+        the falling edge of external trigger signal asserts. When
+        falling_edge is False, the rising edge of the external trigger
+        signal asserts.
+        '''
+        channel = int(channel)
+        request = self._args_to_request('?TRIGGER',channel)
+        self._debug_print('request', request)
+        response = self._send_request_get_response(request)
+        response_list = response.split(' ')
+        parameters = {}
+        parameters['current_max'] = int(response_list[0])
+        parameters['falling_edge'] = bool(int(response_list[1]))
+        return parameters
+
+    def get_trigger_profile(self,channel):
+        '''
+        Each channel has a programmable profile for TRIGGER mode. The
+        profile contains 128 set_point values (0-127), and each
+        set_point has current(mA)/duration(us) pair. A ZERO/ZERO pair
+        means it is the end of the profile. If user does not program
+        the profile for a certain channel, the default is all
+        Zero/Zero pairs, which means the channel is always OFF.
+        '''
+        request = self._args_to_request('?TRIGP',channel)
+        self._debug_print('request', request)
+        self._send_request(request)
+        current = None
+        duration = None
+        profile = []
+        while not ((current == 0) and (duration == 0)):
+            response = self._serial_device.readline()
+            response = response.strip()
+            response = response.replace('#','')
+            response_list = response.split(' ')
+            self._debug_print('trigger_profile set_point',response_list)
+            try:
+                current = int(response_list[0])
+                duration = int(response_list[1])
+                profile_set_point = {}
+                profile_set_point['current'] = current
+                profile_set_point['duration'] = duration
+                profile.append(profile_set_point)
+            except:
+                pass
+        return profile
+
+    def get_load_voltage(self,channel):
+        '''
+        For XV Module (e.g. AV04 or SV04), use this method to get the
+        voltage on the load of the specified channel. It will return
+        the voltage in mV.  Note: As the controller polls the load
+        voltage in a 20ms interval, this feature is proper for NORMAL
+        mode or slow STROBE mode only.
+        '''
+        channel = int(channel)
+        request = self._args_to_request('LoadVoltage',channel)
+        self._debug_print('request', request)
+        response = self._send_request_get_response(request)
+        channel_str = "{0}:".format(channel)
+        response = response.replace(channel_str,'')
+        response = int(response)
+        return response
+
+    def reset(self):
+        '''
+        Soft reset device.
+        '''
+        request = self._args_to_request('Reset')
+        self._debug_print('request', request)
+        self._send_request(request)
+
+    def restore_factory_defaults(self):
+        '''
+        This method will reset the device mode and all related parameters
+        to the factory defaults. Note that these parameters become the
+        current device settings in volatile memory, use the
+        "store_parameters" method to save the current settings to
+        non-volatile memory.
+        '''
+        request = self._args_to_request('RESTOREDEF')
+        self._debug_print('request', request)
+        self._send_request(request)
+
+    def store_parameters(self):
+        '''
+        This method will store the current settings in volatile memory to
+        non-volatile memory.
+        '''
+        request = self._args_to_request('STORE')
+        self._debug_print('request', request)
+        self._send_request(request)
+
 
 class MightexDevices(dict):
     '''
     MightexDevices inherits from dict and automatically populates it with
     MightexDevices on all available serial ports. Access each individual
-    device with one key, the device serial_number. If you
-    want to connect multiple MightexDevices with the same name at the
-    same time, first make sure they have unique serial_numbers by
-    connecting each device one by one and using the set_serial_number
-    method on each device.
+    device with one key, the device serial_number.
     Example Usage:
     devs = MightexDevices()  # Automatically finds all available devices
     devs.keys()
@@ -399,11 +585,11 @@ class MightexDevices(dict):
 
 
 def find_mightex_device_ports(baudrate=None,
-                            try_ports=None,
-                            serial_number=None,
-                            debug=DEBUG,
-                            *args,
-                            **kwargs):
+                              try_ports=None,
+                              serial_number=None,
+                              debug=DEBUG,
+                              *args,
+                              **kwargs):
     serial_device_ports = find_serial_device_ports(try_ports=try_ports, debug=debug)
     os_type = platform.system()
     if os_type == 'Darwin':
@@ -425,9 +611,9 @@ def find_mightex_device_ports(baudrate=None,
     return mightex_device_ports
 
 def find_mightex_device_port(baudrate=None,
-                           try_ports=None,
-                           serial_number=None,
-                           debug=DEBUG):
+                             try_ports=None,
+                             serial_number=None,
+                             debug=DEBUG):
     mightex_device_ports = find_mightex_device_ports(baudrate=baudrate,
                                                      try_ports=try_ports,
                                                      serial_number=serial_number,
