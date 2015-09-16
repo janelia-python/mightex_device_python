@@ -22,7 +22,9 @@ dev = MightexDevice('/dev/tty.usbmodem262471') # Mac OS X
 dev = MightexDevice('COM3') # Windows
 dev.get_serial_number()
 '04-150824-007'
-channel = 1
+dev.get_channel_count()
+4
+channel = 1 # channel numbering starts at 1, not 0!
 dev.get_mode(channel)
 'disable'
 dev.set_normal_parameters(channel,1000,30)

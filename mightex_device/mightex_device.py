@@ -49,7 +49,9 @@ class MightexDevice(object):
     dev = MightexDevice('COM3') # Windows
     dev.get_serial_number()
     '04-150824-007'
-    channel = 1
+    dev.get_channel_count()
+    4
+    channel = 1 # channel numbering starts at 1, not 0!
     dev.get_mode(channel)
     'disable'
     dev.set_normal_parameters(channel,1000,30)
@@ -245,6 +247,20 @@ class MightexDevice(object):
             return 'TRIGGER'
         else:
             raise MightexError('Unknown response: {0}'.format(response))
+
+    def get_channel_count(self):
+        '''
+        Get channel count.
+        '''
+        channel_count = 0
+        while True:
+            try:
+                channel_count += 1
+                mode = self.get_mode(channel_count)
+            except MightexError:
+                break
+        channel_count -= 1
+        return channel_count
 
     def set_mode_disable(self,channel):
         '''
