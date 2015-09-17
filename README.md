@@ -94,3 +94,24 @@ devs = MightexDevices()  # Automatically finds all available devices
 devs.keys()
 dev = devs[serial_number]
 ```
+
+##Installation
+
+[Setup Python](https://github.com/janelia-pypi/python_setup)
+
+###Linux and Mac OS X
+
+```shell
+mkdir -p ~/virtualenvs/mightex_device
+virtualenv ~/virtualenvs/mightex_device
+source ~/virtualenvs/mightex_device/bin/activate
+pip install mightex_device
+```
+
+###Windows
+
+```shell
+virtualenv C:\virtualenvs\mightex_device
+C:\virtualenvs\mightex_device\Scripts\activate
+pip install mightex_device
+```
