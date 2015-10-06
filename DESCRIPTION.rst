@@ -15,6 +15,7 @@ License::
 
 Example Usage::
 
+    from mightex_device import MightexDevice
     dev = MightexDevice() # Might automatically find device if one available
     # if it is not found automatically, specify port directly
     dev = MightexDevice(port='/dev/ttyUSB0') # Linux
@@ -87,3 +88,11 @@ Example Usage::
     dev.get_trigger_profile(channel)
     [{'current': 10, 'duration': 20},
      {'current': 0, 'duration': 0}]
+    from mightex_device import MightexDevices
+    devs = MightexDevices()  # Might automatically find all available devices
+    # if they are not found automatically, specify ports to use
+    devs = MightexDevices(use_ports=['/dev/ttyUSB0','/dev/ttyUSB1']) # Linux
+    devs = MightexDevices(use_ports=['/dev/tty.usbmodem262471','/dev/tty.usbmodem262472']) # Mac OS X
+    devs = MightexDevices(use_ports=['COM3','COM4']) # Windows
+    devs.keys()
+    dev = devs[serial_number]
