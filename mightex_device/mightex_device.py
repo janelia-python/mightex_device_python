@@ -43,10 +43,11 @@ class MightexDevice(object):
 
     Example Usage:
 
-    dev = MightexDevice() # Automatically finds device if one available
-    dev = MightexDevice('/dev/ttyUSB0') # Linux
-    dev = MightexDevice('/dev/tty.usbmodem262471') # Mac OS X
-    dev = MightexDevice('COM3') # Windows
+    dev = MightexDevice() # Might automatically find device if one available
+    # if it is not found automatically, specify port directly
+    dev = MightexDevice(port='/dev/ttyUSB0') # Linux
+    dev = MightexDevice(port='/dev/tty.usbmodem262471') # Mac OS X
+    dev = MightexDevice(port='COM3') # Windows
     dev.get_serial_number()
     '04-150824-007'
     dev.get_channel_count()
@@ -582,7 +583,11 @@ class MightexDevices(dict):
     MightexDevices on all available serial ports. Access each individual
     device with one key, the device serial_number.
     Example Usage:
-    devs = MightexDevices()  # Automatically finds all available devices
+    devs = MightexDevices()  # Might automatically find all available devices
+    # if they are not found automatically, specify ports to try
+    devs = MightexDevices(try_ports=['/dev/ttyUSB0','/dev/ttyUSB1']) # Linux
+    devs = MightexDevices(try_ports=['/dev/tty.usbmodem262471','/dev/tty.usbmodem262472']) # Mac OS X
+    devs = MightexDevices(try_ports=['COM3','COM4']) # Windows
     devs.keys()
     dev = devs[serial_number]
     '''

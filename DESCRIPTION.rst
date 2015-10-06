@@ -15,10 +15,11 @@ License::
 
 Example Usage::
 
-    dev = MightexDevice() # Automatically finds device if one available
-    dev = MightexDevice('/dev/ttyUSB0') # Linux
-    dev = MightexDevice('/dev/tty.usbmodem262471') # Mac OS X
-    dev = MightexDevice('COM3') # Windows
+    dev = MightexDevice() # Might automatically find device if one available
+    # if it is not found automatically, specify port directly
+    dev = MightexDevice(port='/dev/ttyUSB0') # Linux
+    dev = MightexDevice(port='/dev/tty.usbmodem262471') # Mac OS X
+    dev = MightexDevice(port='COM3') # Windows
     dev.get_serial_number()
     '04-150824-007'
     dev.get_channel_count()
