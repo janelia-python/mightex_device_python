@@ -148,6 +148,7 @@ class MightexDevice(object):
         self._serial_device = SerialDevice(*args,**kwargs)
         atexit.register(self._exit_mightex_device)
         self._lock = threading.Lock()
+        self._strict_error = False
         time.sleep(self._RESET_DELAY)
         t_end = time.time()
         self._debug_print('Initialization time =', (t_end - t_start))
@@ -192,7 +193,8 @@ class MightexDevice(object):
             self._lock.release()
         response = response.strip()
         if '#!' in response:
-            raise MightexError('The command is valid and executed, but an error occurred during execution.')
+            if self._strict_error:
+                raise MightexError('The command is valid and executed, but an error occurred during execution.')
         elif '#?' in response:
             raise MightexError('The latest command is a valid command but the argument is NOT in valid range.')
         response = response.replace('#','')
@@ -206,6 +208,9 @@ class MightexDevice(object):
 
     def get_port(self):
         return self._serial_device.port
+
+    def set_strict_error(self,strict_error):
+        self._strict_error = strict_error
 
     def get_device_info(self):
         '''
