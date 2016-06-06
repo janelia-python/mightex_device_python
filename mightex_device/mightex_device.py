@@ -174,7 +174,7 @@ class MightexDevice(object):
         try:
             request = self._args_to_request(*args)
             self._debug_print('request', request)
-            bytes_written = self._serial_device.write_check_freq(request,delay_write=False)
+            bytes_written = self._serial_device.write_check_freq(request,delay_write=True)
         finally:
             self._lock.release()
         return bytes_written
@@ -188,7 +188,7 @@ class MightexDevice(object):
         try:
             request = self._args_to_request(*args)
             self._debug_print('request', request)
-            response = self._serial_device.write_read(request,use_readline=True,check_write_freq=True,delay_write=False)
+            response = self._serial_device.write_read(request,use_readline=True,check_write_freq=True,delay_write=True)
         finally:
             self._lock.release()
         response = response.strip()
