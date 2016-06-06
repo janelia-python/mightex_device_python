@@ -117,7 +117,7 @@ class MightexDevice(object):
      {'current': 0, 'duration': 0}]
     '''
     _TIMEOUT = 0.05
-    _WRITE_WRITE_DELAY = 0.05
+    _WRITE_WRITE_DELAY = 0.005
     _RESET_DELAY = 2.0
 
     def __init__(self,*args,**kwargs):
@@ -169,11 +169,13 @@ class MightexDevice(object):
         Sends request to device over serial port and
         returns number of bytes written.
         '''
-        self._lock.acquire()
-        request = self._args_to_request(*args)
-        self._debug_print('request', request)
-        bytes_written = self._serial_device.write_check_freq(request,delay_write=True)
-        self._lock.release()
+        lock_acquired = self._lock.acquire()
+        try:
+            request = self._args_to_request(*args)
+            self._debug_print('request', request)
+            bytes_written = self._serial_device.write_check_freq(request,delay_write=False)
+        finally:
+            self._lock.release()
         return bytes_written
 
     def _send_request_get_response(self,*args):
@@ -181,11 +183,13 @@ class MightexDevice(object):
         Sends request to device over serial port and
         returns response.
         '''
-        self._lock.acquire()
-        request = self._args_to_request(*args)
-        self._debug_print('request', request)
-        response = self._serial_device.write_read(request,use_readline=True,check_write_freq=True)
-        self._lock.release()
+        lock_acquired = self._lock.acquire()
+        try:
+            request = self._args_to_request(*args)
+            self._debug_print('request', request)
+            response = self._serial_device.write_read(request,use_readline=True,check_write_freq=True,delay_write=False)
+        finally:
+            self._lock.release()
         response = response.strip()
         if '#!' in response:
             raise MightexError('The command is valid and executed, but an error occurred during execution.')
@@ -272,7 +276,7 @@ class MightexDevice(object):
         channel = int(channel)
         request = self._args_to_request('MODE',channel,0)
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
 
     def set_mode_normal(self,channel):
         '''
@@ -281,7 +285,7 @@ class MightexDevice(object):
         channel = int(channel)
         request = self._args_to_request('MODE',channel,1)
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
 
     def set_mode_strobe(self,channel):
         '''
@@ -290,7 +294,7 @@ class MightexDevice(object):
         channel = int(channel)
         request = self._args_to_request('MODE',channel,2)
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
 
     def set_mode_trigger(self,channel):
         '''
@@ -299,7 +303,7 @@ class MightexDevice(object):
         channel = int(channel)
         request = self._args_to_request('MODE',channel,3)
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
 
     def set_normal_parameters(self,channel,current_max,current):
         '''
@@ -312,7 +316,7 @@ class MightexDevice(object):
         current = int(current)
         request = self._args_to_request('NORMAL',channel,current_max,current)
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
 
     def set_normal_current(self,channel,current):
         '''
@@ -322,7 +326,7 @@ class MightexDevice(object):
         current = int(current)
         request = self._args_to_request('CURRENT',channel,current)
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
 
     def get_normal_parameters(self,channel):
         '''
@@ -355,7 +359,7 @@ class MightexDevice(object):
         repeat = int(repeat)
         request = self._args_to_request('STROBE',channel,current_max,repeat)
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
 
     def set_strobe_profile_set_point(self,channel,set_point,current,duration):
         '''
@@ -376,7 +380,7 @@ class MightexDevice(object):
         duration = int(duration)
         request = self._args_to_request('STRP',channel,set_point,current,duration)
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
 
     def get_strobe_parameters(self,channel):
         '''
@@ -409,7 +413,7 @@ class MightexDevice(object):
         '''
         request = self._args_to_request('?STRP',channel)
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
         current = None
         duration = None
         profile = []
@@ -457,7 +461,7 @@ class MightexDevice(object):
         polarity = int(bool(falling_edge))
         request = self._args_to_request('TRIGGER',channel,current_max,polarity)
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
 
     def set_trigger_profile_set_point(self,channel,set_point,current,duration):
         '''
@@ -478,7 +482,7 @@ class MightexDevice(object):
         duration = int(duration)
         request = self._args_to_request('TRIGP',channel,set_point,current,duration)
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
 
     def get_trigger_parameters(self,channel):
         '''
@@ -509,7 +513,7 @@ class MightexDevice(object):
         '''
         request = self._args_to_request('?TRIGP',channel)
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
         current = None
         duration = None
         profile = []
@@ -553,7 +557,7 @@ class MightexDevice(object):
         '''
         request = self._args_to_request('Reset')
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
 
     def restore_factory_defaults(self):
         '''
@@ -565,7 +569,7 @@ class MightexDevice(object):
         '''
         request = self._args_to_request('RESTOREDEF')
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
 
     def store_parameters(self):
         '''
@@ -574,7 +578,7 @@ class MightexDevice(object):
         '''
         request = self._args_to_request('STORE')
         self._debug_print('request', request)
-        self._send_request(request)
+        self._send_request_get_response(request)
 
 
 class MightexDevices(dict):
