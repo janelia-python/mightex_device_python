@@ -117,7 +117,7 @@ class MightexDevice(object):
      {'current': 0, 'duration': 0}]
     '''
     _TIMEOUT = 0.05
-    _WRITE_WRITE_DELAY = 0.005
+    _WRITE_WRITE_DELAY = 0.05
     _RESET_DELAY = 2.0
 
     def __init__(self,*args,**kwargs):
@@ -269,7 +269,7 @@ class MightexDevice(object):
             try:
                 channel_count += 1
                 mode = self.get_mode(channel_count)
-            except MightexError:
+            except MightexError, ReadError:
                 break
         channel_count -= 1
         return channel_count
