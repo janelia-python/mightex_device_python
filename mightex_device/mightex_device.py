@@ -9,7 +9,7 @@ from exceptions import Exception
 import threading
 import re
 
-from serial_device2 import SerialDevice, SerialDevices, find_serial_device_ports, WriteFrequencyError
+from serial_device2 import SerialDevice, SerialDevices, find_serial_device_ports, WriteFrequencyError, WriteError, ReadError
 
 try:
     from pkg_resources import get_distribution, DistributionNotFound
@@ -188,7 +188,7 @@ class MightexDevice(object):
         try:
             request = self._args_to_request(*args)
             self._debug_print('request', request)
-            response = self._serial_device.write_read(request,use_readline=True,check_write_freq=True,delay_write=True)
+            response = self._serial_device.write_read(request,use_readline=True,check_write_freq=False,delay_write=True)
         finally:
             self._lock.release()
         response = response.strip()
