@@ -269,7 +269,7 @@ class MightexDevice(object):
             try:
                 channel_count += 1
                 mode = self.get_mode(channel_count)
-            except MightexError, ReadError:
+            except MightexError:
                 break
         channel_count -= 1
         return channel_count
