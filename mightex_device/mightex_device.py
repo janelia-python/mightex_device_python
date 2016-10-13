@@ -52,7 +52,7 @@ class MightexDevice(object):
     '04-150824-007'
     dev.get_channel_count()
     4
-    channel = 1 # channel numbering starts at 1, not 0!
+    channel = 0 # channel numbering starts at 0, not 1!
     dev.get_mode(channel)
     'disable'
     dev.set_normal_parameters(channel,1000,30)
@@ -152,6 +152,7 @@ class MightexDevice(object):
         time.sleep(self._RESET_DELAY)
         t_end = time.time()
         self._debug_print('Initialization time =', (t_end - t_start))
+        _channel_count = -1
 
     def _debug_print(self, *args):
         if self.debug:
@@ -245,7 +246,7 @@ class MightexDevice(object):
         '''
         Get channel mode. Modes = ['DISABLE','NORMAL','STROBE','TRIGGER']
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         request = self._args_to_request('?MODE',channel)
         self._debug_print('request', request)
         response = self._send_request_get_response(request)
@@ -260,10 +261,22 @@ class MightexDevice(object):
         else:
             raise MightexError('Unknown response: {0}'.format(response))
 
+    def get_all_modes(self):
+        '''
+        Get all channel modes.
+        '''
+        modes = []
+        for channel in range(self.get_channel_count()):
+            mode = self.get_mode(channel)
+            modes.append(mode)
+        return modes
+
     def get_channel_count(self):
         '''
         Get channel count.
         '''
+        if _channel_count > 0:
+            return _channel_count
         channel_count = 0
         while True:
             try:
@@ -272,43 +285,72 @@ class MightexDevice(object):
             except MightexError:
                 break
         channel_count -= 1
+        _channel_count = channel_count
         return channel_count
 
     def set_mode_disable(self,channel):
         '''
         Set DISABLE mode.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         request = self._args_to_request('MODE',channel,0)
         self._debug_print('request', request)
         self._send_request_get_response(request)
+
+    def set_all_mode_disable(self):
+        '''
+        Set DISABLE mode for all channels.
+        '''
+        for channel in range(self.get_channel_count()):
+            self.set_mode_disable(channel)
 
     def set_mode_normal(self,channel):
         '''
         Set NORMAL mode.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         request = self._args_to_request('MODE',channel,1)
         self._debug_print('request', request)
         self._send_request_get_response(request)
+
+    def set_all_mode_normal(self):
+        '''
+        Set NORMAL mode for all channels.
+        '''
+        for channel in range(self.get_channel_count()):
+            self.set_mode_normal(channel)
 
     def set_mode_strobe(self,channel):
         '''
         Set STROBE mode.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         request = self._args_to_request('MODE',channel,2)
         self._debug_print('request', request)
         self._send_request_get_response(request)
+
+    def set_all_mode_strobe(self):
+        '''
+        Set STROBE mode for all channels.
+        '''
+        for channel in range(self.get_channel_count()):
+            self.set_mode_strobe(channel)
 
     def set_mode_trigger(self,channel):
         '''
         Set TRIGGER mode.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         request = self._args_to_request('MODE',channel,3)
         self._debug_print('request', request)
         self._send_request_get_response(request)
+
+    def set_all_mode_trigger(self):
+        '''
+        Set TRIGGER mode for all channels.
+        '''
+        for channel in range(self.get_channel_count()):
+            self.set_mode_trigger(channel)
 
     def set_normal_parameters(self,channel,current_max,current):
         '''
@@ -316,22 +358,36 @@ class MightexDevice(object):
         allowed for NORMAL mode, in mA. current is the working current
         for NORMAL mode, in mA.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         current_max = int(current_max)
         current = int(current)
         request = self._args_to_request('NORMAL',channel,current_max,current)
         self._debug_print('request', request)
         self._send_request_get_response(request)
 
+    def set_all_normal_parameters(self,current_max,current):
+        '''
+        Set normal parameters for all channels.
+        '''
+        for channel in range(self.get_channel_count()):
+            self.set_normal_parameters(channel,current_max,current)
+
     def set_normal_current(self,channel,current):
         '''
         Set the working current for NORMAL mode, in mA.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         current = int(current)
         request = self._args_to_request('CURRENT',channel,current)
         self._debug_print('request', request)
         self._send_request_get_response(request)
+
+    def set_all_normal_current(self,current):
+        '''
+        Set normal current for all channels.
+        '''
+        for channel in range(self.get_channel_count()):
+            self.set_normal_current(channel,current)
 
     def get_normal_parameters(self,channel):
         '''
@@ -339,7 +395,7 @@ class MightexDevice(object):
         allowed for NORMAL mode, in mA. current is the working current
         for NORMAL mode, in mA.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         request = self._args_to_request('?CURRENT',channel)
         self._debug_print('request', request)
         response = self._send_request_get_response(request)
@@ -348,6 +404,16 @@ class MightexDevice(object):
         parameters['current_max'] = int(response_list[-2])
         parameters['current'] = int(response_list[-1])
         return parameters
+
+    def get_all_normal_parameters(self):
+        '''
+        get normal parameters for all channels.
+        '''
+        parameters_list = []
+        for channel in range(self.get_channel_count()):
+            parameters = self.get_normal_parameters(channel)
+            parameters_list.append(parameters)
+        return parameters_list
 
     def set_strobe_parameters(self,channel,current_max,repeat):
         '''
@@ -359,12 +425,19 @@ class MightexDevice(object):
         it is 1, the wave form will be repeated once, which will be
         output twice and so on.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         current_max = int(current_max)
         repeat = int(repeat)
         request = self._args_to_request('STROBE',channel,current_max,repeat)
         self._debug_print('request', request)
         self._send_request_get_response(request)
+
+    def set_all_strobe_parameters(self,current_max,repeat):
+        '''
+        Set strobe parameters for all channels.
+        '''
+        for channel in range(self.get_channel_count()):
+            self.set_strobe_parameters(channel,current_max,current)
 
     def set_strobe_profile_set_point(self,channel,set_point,current,duration):
         '''
@@ -379,7 +452,7 @@ class MightexDevice(object):
         profile will be executed (repeatedly) after device enters (or
         reenters) the STROBE mode.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         set_point = int(set_point)
         current = int(current)
         duration = int(duration)
@@ -397,7 +470,7 @@ class MightexDevice(object):
         it is 1, the wave form will be repeated once, which will be
         output twice and so on.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         request = self._args_to_request('?STROBE',channel)
         self._debug_print('request', request)
         response = self._send_request_get_response(request)
@@ -406,6 +479,16 @@ class MightexDevice(object):
         parameters['current_max'] = int(response_list[0])
         parameters['repeat'] = int(response_list[1])
         return parameters
+
+    def get_all_strobe_parameters(self):
+        '''
+        get strobe parameters for all channels.
+        '''
+        parameters_list = []
+        for channel in range(self.get_channel_count()):
+            parameters = self.get_strobe_parameters(channel)
+            parameters_list.append(parameters)
+        return parameters_list
 
     def get_strobe_profile(self,channel):
         '''
@@ -461,12 +544,19 @@ class MightexDevice(object):
         falling_edge is False, the rising edge of the external trigger
         signal asserts.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         current_max = int(current_max)
         polarity = int(bool(falling_edge))
         request = self._args_to_request('TRIGGER',channel,current_max,polarity)
         self._debug_print('request', request)
         self._send_request_get_response(request)
+
+    def set_all_trigger_parameters(self,current_max,falling_edge):
+        '''
+        Set trigger parameters for all channels.
+        '''
+        for channel in range(self.get_channel_count()):
+            self.set_trigger_parameters(channel,current_max,falling_edge)
 
     def set_trigger_profile_set_point(self,channel,set_point,current,duration):
         '''
@@ -481,7 +571,7 @@ class MightexDevice(object):
         profile will be executed while an external trigger occurs and
         the device is in TRIGGER mode.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         set_point = int(set_point)
         current = int(current)
         duration = int(duration)
@@ -497,7 +587,7 @@ class MightexDevice(object):
         falling_edge is False, the rising edge of the external trigger
         signal asserts.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         request = self._args_to_request('?TRIGGER',channel)
         self._debug_print('request', request)
         response = self._send_request_get_response(request)
@@ -506,6 +596,16 @@ class MightexDevice(object):
         parameters['current_max'] = int(response_list[0])
         parameters['falling_edge'] = bool(int(response_list[1]))
         return parameters
+
+    def get_all_trigger_parameters(self):
+        '''
+        get trigger parameters for all channels.
+        '''
+        parameters_list = []
+        for channel in range(self.get_channel_count()):
+            parameters = self.get_trigger_parameters(channel)
+            parameters_list.append(parameters)
+        return parameters_list
 
     def get_trigger_profile(self,channel):
         '''
@@ -547,7 +647,7 @@ class MightexDevice(object):
         voltage in a 20ms interval, this feature is proper for NORMAL
         mode or slow STROBE mode only.
         '''
-        channel = int(channel)
+        channel = int(channel) + 1
         request = self._args_to_request('LoadVoltage',channel)
         self._debug_print('request', request)
         response = self._send_request_get_response(request)
@@ -555,6 +655,16 @@ class MightexDevice(object):
         response = response.replace(channel_str,'')
         response = int(response)
         return response
+
+    def get_all_load_voltages(self):
+        '''
+        get load voltages for all channels.
+        '''
+        voltages = []
+        for channel in range(self.get_channel_count()):
+            voltage = self.get_load_voltage(channel)
+            voltages.append(parameters)
+        return voltages
 
     def reset(self):
         '''

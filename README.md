@@ -25,7 +25,7 @@ dev.get_serial_number()
 '04-150824-007'
 dev.get_channel_count()
 4
-channel = 1 # channel numbering starts at 1, not 0!
+channel = 0 # channel numbering starts at 0, not 1!
 dev.get_mode(channel)
 'disable'
 dev.set_normal_parameters(channel,1000,30)
