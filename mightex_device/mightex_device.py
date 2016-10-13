@@ -149,10 +149,10 @@ class MightexDevice(object):
         atexit.register(self._exit_mightex_device)
         self._lock = threading.Lock()
         self._strict_error = False
+        self._channel_count = -1
         time.sleep(self._RESET_DELAY)
         t_end = time.time()
         self._debug_print('Initialization time =', (t_end - t_start))
-        _channel_count = -1
 
     def _debug_print(self, *args):
         if self.debug:
@@ -276,7 +276,7 @@ class MightexDevice(object):
         Get channel count.
         '''
         if _channel_count > 0:
-            return _channel_count
+            return self._channel_count
         channel_count = 0
         while True:
             try:
@@ -285,7 +285,7 @@ class MightexDevice(object):
             except MightexError:
                 break
         channel_count -= 1
-        _channel_count = channel_count
+        self._channel_count = channel_count
         return channel_count
 
     def set_mode_disable(self,channel):
