@@ -9,7 +9,7 @@ from exceptions import Exception
 import threading
 import re
 
-from serial_device2 import SerialDevice, SerialDevices, find_serial_device_ports, WriteFrequencyError, WriteError, ReadError
+from serial_device2 import SerialDevice, SerialDevices, find_serial_device_ports
 
 try:
     from pkg_resources import get_distribution, DistributionNotFound
