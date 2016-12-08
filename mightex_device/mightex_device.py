@@ -275,7 +275,7 @@ class MightexDevice(object):
         '''
         Get channel count.
         '''
-        if _channel_count > 0:
+        if self._channel_count > 0:
             return self._channel_count
         channel_count = 0
         while True:
