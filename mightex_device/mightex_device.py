@@ -185,6 +185,7 @@ class MightexDevice(object):
         Sends request to device over serial port and
         returns response.
         '''
+        response = ''
         lock_acquired = self._lock.acquire()
         try:
             request = self._args_to_request(*args)
@@ -286,7 +287,6 @@ class MightexDevice(object):
                 mode = self.get_mode(channel_count)
             except MightexError:
                 break
-        channel_count -= 1
         self._channel_count = channel_count
         return channel_count
 
