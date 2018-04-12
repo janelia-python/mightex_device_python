@@ -1,20 +1,18 @@
-#mightex_device_python
+#+TITLE: mightex_device_python
+#+AUTHOR: Peter Polidoro
+#+EMAIL: peterpolidoro@gmail.com
 
-This Python package (mightex\_device) creates a class named MightexDevice,
-which contains an instance of serial\_device2.SerialDevice and adds
-methods to it to interface to Mightex LED controllers.
+* Package Information
+  - Author :: Peter Polidoro
+  - License :: BSD
 
-Authors:
+  This Python package (mightex_device) creates a class named MightexDevice,
+  which contains an instance of serial_device2.SerialDevice and adds
+  methods to it to interface to Mightex LED controllers.
 
-    Peter Polidoro <polidorop@janelia.hhmi.org>
+* Example Usage
 
-License:
-
-    BSD
-
-##Example Usage
-
-```python
+  #+BEGIN_SRC python
 from mightex_device import MightexDevice
 dev = MightexDevice() # Might automatically find device if one available
 # if it is not found automatically, specify port directly
@@ -88,9 +86,9 @@ dev.reset()
 dev.get_trigger_profile(channel)
 [{'current': 10, 'duration': 20},
  {'current': 0, 'duration': 0}]
-```
+  #+END_SRC
 
-```python
+  #+BEGIN_SRC python
 from mightex_device import MightexDevices
 devs = MightexDevices()  # Might automatically find all available devices
 # if they are not found automatically, specify ports to use
@@ -99,33 +97,31 @@ devs = MightexDevices(use_ports=['/dev/tty.usbmodem262471','/dev/tty.usbmodem262
 devs = MightexDevices(use_ports=['COM3','COM4']) # Windows
 devs.keys()
 dev = devs[serial_number]
-```
+  #+END_SRC
 
-##Installation
+* Installation
 
-[Setup Python](https://github.com/janelia-pypi/python_setup)
+  [[https://github.com/janelia-pypi/python_setup][Setup Python]]
 
-###Linux and Mac OS X
+   - Set controller to RS-232 mode.
 
-```shell
+   - Use DB-9 serial port cable to connect controller to host computer
+     with a USB to Serial Port RS-232 Converter. Install drivers for USB
+     to Serial Port RS-232 Converter if necessary.
+
+** Linux and Mac OS X
+
+   #+BEGIN_SRC sh
 mkdir -p ~/virtualenvs/mightex_device
 virtualenv ~/virtualenvs/mightex_device
 source ~/virtualenvs/mightex_device/bin/activate
 pip install mightex_device
-```
+   #+END_SRC
 
-###Windows
+** Windows
 
-```shell
+   #+BEGIN_SRC sh
 virtualenv C:\virtualenvs\mightex_device
 C:\virtualenvs\mightex_device\Scripts\activate
 pip install mightex_device
-```
-
-###Mightex Controller
-
-* Set controller to RS-232 mode.
-
-* Use DB-9 serial port cable to connect controller to host computer
-  with a USB to Serial Port RS-232 Converter. Install drivers for USB
-  to Serial Port RS-232 Converter if necessary.
+   #+END_SRC
