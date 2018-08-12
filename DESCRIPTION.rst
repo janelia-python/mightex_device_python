@@ -7,7 +7,7 @@ methods to it to interface to Mightex LED controllers.
 
 Authors::
 
-    Peter Polidoro <polidorop@janelia.hhmi.org>
+    Peter Polidoro <peterpolidoro@gmail.com>
 
 License::
 
