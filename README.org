@@ -105,7 +105,7 @@
 
 * Installation
 
-  [[https://github.com/janelia-pypi/python_setup][Setup Python]]
+  [[https://github.com/janelia-pypi/python_setup]]
 
   - Set controller to RS-232 mode.
 
