@@ -1,6 +1,6 @@
 #+TITLE: mightex_device_python
 #+AUTHOR: Peter Polidoro
-#+EMAIL: peterpolidoro@gmail.com
+#+EMAIL: peter@polidoro.io
 
 * Package Information
   - Name :: mightex_device_python
@@ -8,7 +8,7 @@
   - License :: BSD
   - URL :: https://github.com/janelia-pypi/mightex_device_python
   - Author :: Peter Polidoro
-  - Email :: peterpolidoro@gmail.com
+  - Email :: peter@polidoro.io
 
   This Python package (mightex_device) creates a class named MightexDevice,
   which contains an instance of serial_device2.SerialDevice and adds
