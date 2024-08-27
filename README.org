@@ -6,7 +6,7 @@
   - Name :: mightex_device_python
   - Version :: 2.0.4
   - License :: BSD
-  - URL :: https://github.com/janelia-pypi/mightex_device_python
+  - URL :: https://github.com/janelia-python/mightex_device_python
   - Author :: Peter Polidoro
   - Email :: peter@polidoro.io
 
@@ -105,7 +105,7 @@
 
 * Installation
 
-  [[https://github.com/janelia-pypi/python_setup]]
+  [[https://github.com/janelia-python/python_setup]]
 
   - Set controller to RS-232 mode.
 
